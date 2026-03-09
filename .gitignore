@@ -22,5 +22,5 @@ frontend/.env*.local
 Thumbs.db
 
 # Sensitive
-backend/src/main/resources/application-prod.properties
+# backend/src/main/resources/application-prod.properties  # uncomment to ignore locally
 *.env
