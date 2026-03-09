@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git:*)",
+      "Bash(npx create-next-app@latest:*)",
+      "Bash(npm install:*)"
+    ]
+  }
+}
