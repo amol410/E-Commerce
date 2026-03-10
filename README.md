@@ -1,23 +1,21 @@
-# E-Commerce Backend + Frontend
+# ShopEase — Full-Stack E-Commerce App
 
-A full-stack e-commerce application built with **Spring Boot 3.x**, **Spring Data JPA**, **MySQL**, **Spring Security + JWT**, and a **Next.js + Tailwind CSS** frontend.
-
-> Target: 5–10 LPA roles at Accenture, Capgemini, Persistent Systems, and D2C startups.
+A full-stack e-commerce application built with **Spring Boot 4.0.3**, **Spring Security + JWT**, **MySQL**, and a **Next.js 16 + Tailwind CSS** frontend.
 
 ---
 
 ## Tech Stack
 
-| Layer       | Technology                                      |
-|-------------|--------------------------------------------------|
-| Backend     | Spring Boot 3.2.4, Java 21 (runs on Java 24)    |
-| Database    | MySQL 8, Hibernate, H2 (tests)                  |
-| Security    | Spring Security 6, JWT (jjwt 0.12.5)            |
-| Mapping     | MapStruct 1.6.3                                 |
-| Docs        | Swagger / OpenAPI 3.0 (springdoc)               |
-| Testing     | JUnit 5, Mockito 5.14.2, MockMvc (46 tests)     |
-| Frontend    | Next.js 14 (App Router), Tailwind CSS            |
-| Deployment  | Render.com (backend), Vercel (frontend)          |
+| Layer      | Technology                                              |
+|------------|---------------------------------------------------------|
+| Backend    | Spring Boot 4.0.3, Java 21 (runs on Java 24)           |
+| Database   | MySQL 8, Hibernate ORM 7.2, H2 (tests)                 |
+| Security   | Spring Security 6, JWT (jjwt 0.12.5)                   |
+| Mapping    | MapStruct 1.6.3                                         |
+| Docs       | Swagger / OpenAPI 3.0 (springdoc 2.8.6)                |
+| Testing    | JUnit 5, Mockito 5.14.2, MockMvc — **46 tests passing** |
+| Frontend   | Next.js 16.1.6 (App Router), React 19, Tailwind CSS 4  |
+| Deployment | Render.com (backend), Vercel (frontend)                 |
 
 ---
 
@@ -25,187 +23,165 @@ A full-stack e-commerce application built with **Spring Boot 3.x**, **Spring Dat
 
 ```
 Ecom/
-├── backend/               # Spring Boot project (single evolving project)
+├── backend/                  # Spring Boot Maven project
 │   └── src/
-├── frontend/              # Next.js project (single evolving project)
-│   └── app/
+│       ├── main/
+│       │   ├── java/com/ecom/ecommerce/
+│       │   │   ├── config/        # SecurityConfig, OpenApiConfig, CORS
+│       │   │   ├── controller/    # 5 REST controllers
+│       │   │   ├── dto/           # Request/Response DTOs
+│       │   │   ├── entity/        # JPA entities + enums
+│       │   │   ├── exception/     # GlobalExceptionHandler
+│       │   │   ├── repository/    # JpaRepository interfaces
+│       │   │   ├── security/      # JwtUtil, JwtAuthFilter
+│       │   │   └── service/       # Business logic
+│       │   └── resources/
+│       │       ├── application.properties        # Dev config
+│       │       └── application-prod.properties   # Prod config (env vars)
+│       └── test/
+│           ├── java/              # Unit + MockMvc integration tests
+│           └── resources/
+│               └── application.properties        # H2 in-memory test config
+├── frontend/                 # Next.js project
+│   ├── app/                  # App Router pages
+│   ├── components/           # Reusable UI (Navbar, ProductCard, etc.)
+│   ├── context/              # AuthContext, CartContext
+│   └── lib/                  # Utility functions, Axios instance
 ├── README.md
 ├── PROCESS.md
-└── ISSUES.md
+├── ISSUES.md
+└── TESTING.md
 ```
 
 ---
 
-## Versions
+## API Endpoints
 
-### V1 — Foundation: Entity Design & Product CRUD
-**Tag:** `v1.0`
+| Method | Endpoint                    | Auth        | Description              |
+|--------|-----------------------------|-------------|--------------------------|
+| POST   | /api/auth/register          | Public      | Register new user        |
+| POST   | /api/auth/login             | Public      | Login — returns JWT      |
+| GET    | /api/products               | Public      | List products (filter + paginate) |
+| GET    | /api/products/{id}          | Public      | Get product by ID        |
+| POST   | /api/products               | ADMIN       | Create product           |
+| PUT    | /api/products/{id}          | ADMIN       | Update product           |
+| DELETE | /api/products/{id}          | ADMIN       | Delete product           |
+| GET    | /api/categories             | Public      | List all categories      |
+| GET    | /api/categories/tree        | Public      | Recursive category tree  |
+| GET    | /api/categories/{id}        | Public      | Get category by ID       |
+| POST   | /api/categories             | ADMIN       | Create category          |
+| PUT    | /api/categories/{id}        | ADMIN       | Update category          |
+| DELETE | /api/categories/{id}        | ADMIN       | Delete category          |
+| GET    | /api/cart                   | USER        | View cart                |
+| POST   | /api/cart/add               | USER        | Add item to cart         |
+| PUT    | /api/cart/update/{itemId}   | USER        | Update item quantity     |
+| DELETE | /api/cart/remove/{itemId}   | USER        | Remove item from cart    |
+| DELETE | /api/cart/clear             | USER        | Clear entire cart        |
+| POST   | /api/orders/place           | USER        | Place order from cart    |
+| GET    | /api/orders/my              | USER        | Order history (paginated)|
+| GET    | /api/orders/{id}            | USER        | Get order by ID          |
 
-**Backend:**
-- 5 JPA entities: `Category` (self-referential), `Product`, `User`, `Cart`, `CartItem`
-- MySQL schema with proper relationships and constraints
-- `ProductController` — full CRUD REST API (`/api/products`)
-- `CategoryController` — basic CRUD (`/api/categories`)
-- Global exception handler (`@RestControllerAdvice`)
-- Standard API response wrapper
-
-**Frontend:**
-- Next.js 14 App Router setup with Tailwind CSS
-- Product listing page with grid layout
-- Product detail page
-- Basic responsive navbar
-
----
-
-### V2 — Authentication: Spring Security + JWT
-**Tag:** `v2.0`
-
-**Backend (additions over V1):**
-- `UserService` with BCrypt password encoding
-- JWT token generation, validation, refresh
-- `AuthController` — `/api/auth/register`, `/api/auth/login`
-- Role-based access: `ROLE_USER`, `ROLE_ADMIN`
-- Security filter chain — public vs protected routes
-- `SecurityConfig`, `JwtFilter`, `UserDetailsServiceImpl`
-
-**Frontend (additions over V1):**
-- Login & Register pages with form validation
-- JWT stored in `httpOnly` cookie / localStorage
-- Protected routes using Next.js middleware
-- Auth context with React hooks
-
----
-
-### V3 — Shopping Cart & Orders
-**Tag:** `v3.0`
-
-**Backend (additions over V2):**
-- `CartService` — add/remove/update items, view cart
-- `CartController` — `/api/cart/**` (auth-protected)
-- `Order`, `OrderItem` entities
-- `OrderService` — place order from cart, order history
-- `OrderController` — `/api/orders/**`
-- Stock validation on order placement
-
-**Frontend (additions over V2):**
-- Cart page — item list, quantity controls, total
-- Checkout page — place order flow
-- Order history page
-- Toast notifications for cart actions
-
----
-
-### V4 — Catalog Features: Filters, Pagination, Category Tree & Swagger
-**Tag:** `v4.0`
-
-**Backend (additions over V3):**
-- Recursive category tree (self-referential JPA, `@OneToMany(mappedBy="parent")`)
-- Product count per category
-- Product search by name/category/price range
-- Pagination & sorting via Spring Data `Pageable`
-- Swagger UI (`springdoc-openapi`) at `/swagger-ui.html`
-- MapStruct DTOs for all entities
-
-**Frontend (additions over V3):**
-- Sidebar category tree with expand/collapse
-- Filter panel — price range, category, sort order
-- Paginated product grid
-- Search bar with debounce
-
----
-
-### V5 — Production Polish: Validation, Tests & Deployment
-**Tag:** `v5.0`
-
-**Backend (additions over V4):**
-- Bean Validation (`@Valid`, `@NotBlank`, etc.) on all DTOs
-- Custom validation annotations
-- JUnit 5 unit tests for services (`AuthServiceTest`, `CartServiceTest`, `ProductServiceTest`)
-- MockMvc integration tests for all 5 controllers (46 tests total, 100% passing)
-- H2 in-memory database for test isolation (`src/test/resources/application.properties`)
-- `application-prod.properties` for deployment
-- CORS configuration for frontend domain
-
-**Java 24 compatibility fixes (post-v5):**
-- Upgraded Lombok to `1.18.42` (Java 24 support)
-- Upgraded MapStruct to `1.6.3`
-- Upgraded Mockito to `5.14.2` + Byte Buddy to `1.15.10`
-- Added `-XX:+EnableDynamicAgentLoading -Dnet.bytebuddy.experimental=true` to Surefire
-- Changed Java target from 17 → 21
-
-**Frontend (additions over V4):**
-- Full Tailwind theming (dark mode toggle)
-- Loading skeletons on all data-fetching pages
-- SEO metadata with Next.js `metadata` API
-- Error boundary and 404 page
-- Deployment config for Vercel
-
----
-
-## API Endpoints Summary
-
-| Method | Endpoint                        | Auth       | Description              |
-|--------|---------------------------------|------------|--------------------------|
-| GET    | /api/products                   | Public     | List all products        |
-| GET    | /api/products/{id}              | Public     | Get product by ID        |
-| POST   | /api/products                   | ADMIN      | Create product           |
-| PUT    | /api/products/{id}              | ADMIN      | Update product           |
-| DELETE | /api/products/{id}              | ADMIN      | Delete product           |
-| GET    | /api/categories                 | Public     | List all categories      |
-| GET    | /api/categories/tree            | Public     | Recursive category tree  |
-| GET    | /api/categories/{id}            | Public     | Get category by ID       |
-| POST   | /api/categories                 | ADMIN      | Create category          |
-| PUT    | /api/categories/{id}            | ADMIN      | Update category          |
-| DELETE | /api/categories/{id}            | ADMIN      | Delete category          |
-| POST   | /api/auth/register              | Public     | Register user            |
-| POST   | /api/auth/login                 | Public     | Login, returns JWT       |
-| GET    | /api/cart                       | USER       | View cart                |
-| POST   | /api/cart/add                   | USER       | Add item to cart         |
-| PUT    | /api/cart/update/{itemId}       | USER       | Update item quantity      |
-| DELETE | /api/cart/remove/{itemId}       | USER       | Remove item              |
-| DELETE | /api/cart/clear                 | USER       | Clear entire cart        |
-| POST   | /api/orders/place               | USER       | Place order              |
-| GET    | /api/orders/my                  | USER       | Order history            |
-| GET    | /api/orders/{id}                | USER       | Get order by ID          |
+Swagger UI available at: `http://localhost:8080/swagger-ui.html`
 
 ---
 
 ## Running Locally
 
-### Backend
-```bash
-cd backend
-# Update src/main/resources/application.properties with your MySQL credentials
-./mvnw spring-boot:run
+### Prerequisites
+- Java 21+ (tested on Java 24.0.2)
+- Maven 3.9+
+- MySQL 8
+- Node.js 18+
+
+### 1. Database Setup
+
+```sql
+CREATE DATABASE ecom_db;
 ```
 
-### Frontend
+### 2. Backend
+
+```bash
+cd backend
+# Edit src/main/resources/application.properties with your MySQL credentials
+mvn spring-boot:run
+```
+
+Backend runs at `http://localhost:8080`
+
+### 3. Frontend
+
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000)
+Frontend runs at `http://localhost:3000`
 
 ---
 
-## Database Setup
+## Running Tests
 
-```sql
-CREATE DATABASE ecom_db;
+```bash
+cd backend
+mvn test
 ```
 
-Update `backend/src/main/resources/application.properties`:
-```properties
-spring.datasource.url=jdbc:mysql://localhost:3306/ecom_db
-spring.datasource.username=root
-spring.datasource.password=yourpassword
-```
+- Uses H2 in-memory DB — no MySQL needed for tests
+- 46 tests: 3 service unit test classes + 5 MockMvc controller test classes
+
+---
+
+## Database Schema
+
+| Entity     | Key Fields                                              |
+|------------|---------------------------------------------------------|
+| User       | id, name, email, password (BCrypt), role               |
+| Category   | id, name, description, parent_id (self-referential)    |
+| Product    | id, name, description, price, stock, imageUrl, category|
+| Cart       | id, user_id (1-to-1 with User)                         |
+| CartItem   | id, cart_id, product_id, quantity                      |
+| Order      | id, user_id, status, totalAmount, createdAt            |
+| OrderItem  | id, order_id, product_id, quantity, priceAtPurchase    |
 
 ---
 
 ## Deployment
 
-- **Backend:** Deploy to [Render.com](https://render.com) — connect GitHub, set env vars
-- **Frontend:** Deploy to [Vercel](https://vercel.com) — connect GitHub, set `NEXT_PUBLIC_API_URL`
+### Backend → Render.com
+
+1. Push code to GitHub
+2. Create new Web Service on Render, connect the repo
+3. Set build command: `cd backend && mvn package -DskipTests`
+4. Set start command: `java -jar backend/target/ecommerce-0.0.1-SNAPSHOT.jar`
+5. Add environment variables:
+   - `DB_URL` — your MySQL connection string
+   - `DB_USERNAME`, `DB_PASSWORD`
+   - `JWT_SECRET` — 64+ char hex string
+   - `SPRING_PROFILES_ACTIVE=prod`
+
+### Frontend → Vercel
+
+1. Connect GitHub repo to Vercel
+2. Set root directory to `frontend`
+3. Add environment variable: `NEXT_PUBLIC_API_URL=https://your-backend.onrender.com`
+4. Deploy
+
+---
+
+## Development Versions
+
+| Version | Focus                                           |
+|---------|-------------------------------------------------|
+| v1.0    | Entity design, Product & Category CRUD, Next.js setup |
+| v2.0    | Spring Security + JWT, Login/Register UI        |
+| v3.0    | Shopping Cart & Order placement                 |
+| v4.0    | Filters, pagination, category tree, Swagger, MapStruct DTOs |
+| v5.0    | Validation, JUnit5 + MockMvc tests, deployment config |
+| v6.0    | Java 24 compatibility, H2 test config, full test suite |
+| v7.0    | Spring Boot 4.0.3 upgrade, Hibernate 7, all breaking changes fixed |
+
+See [PROCESS.md](PROCESS.md) for step-by-step build process.
+See [ISSUES.md](ISSUES.md) for known issues and solutions.
+See [TESTING.md](TESTING.md) for manual testing guide.

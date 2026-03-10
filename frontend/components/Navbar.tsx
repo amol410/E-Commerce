@@ -48,7 +48,7 @@ export default function Navbar() {
             {user ? (
               <div className="flex items-center gap-3">
                 <span className="text-sm text-gray-600 font-medium hidden sm:block">
-                  Hi, {user.name.split(" ")[0]}
+                  Hi, {user.name?.split(" ")[0] ?? "User"}
                 </span>
                 <button
                   onClick={handleLogout}
