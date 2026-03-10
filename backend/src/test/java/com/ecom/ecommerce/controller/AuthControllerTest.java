@@ -6,27 +6,30 @@ import com.ecom.ecommerce.service.AuthService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
+import com.ecom.ecommerce.config.TestMvcConfig;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.assertj.MockMvcTester;
+import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
 import java.util.Map;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest
-@AutoConfigureMockMvc
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
+@Import(TestMvcConfig.class)
+
 class AuthControllerTest {
 
-    @Autowired private MockMvc mockMvc;
+    @Autowired private MockMvcTester mockMvc;
     @Autowired private ObjectMapper objectMapper;
 
-    @MockBean private AuthService authService;
+    @MockitoBean private AuthService authService;
 
     @Test
     void register_validRequest_returns201() throws Exception {
@@ -44,13 +47,15 @@ class AuthControllerTest {
         );
         when(authService.register(any(RegisterRequest.class))).thenReturn(response);
 
-        mockMvc.perform(post("/api/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.token").value("jwt-token"))
-                .andExpect(jsonPath("$.data.email").value("john@example.com"));
+        MvcTestResult result = mockMvc.post().uri("/api/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+                .exchange();
+
+        assertThat(result).hasStatus(201);
+        assertThat(result).bodyJson().extractingPath("$.success").isEqualTo(true);
+        assertThat(result).bodyJson().extractingPath("$.data.token").isEqualTo("jwt-token");
+        assertThat(result).bodyJson().extractingPath("$.data.email").isEqualTo("john@example.com");
     }
 
     @Test
@@ -60,10 +65,11 @@ class AuthControllerTest {
         request.setPassword("password123");
         // name is missing
 
-        mockMvc.perform(post("/api/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest());
+        assertThat(mockMvc.post().uri("/api/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+                .exchange())
+                .hasStatus(400);
     }
 
     @Test
@@ -73,10 +79,11 @@ class AuthControllerTest {
         request.setEmail("not-an-email");
         request.setPassword("password123");
 
-        mockMvc.perform(post("/api/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest());
+        assertThat(mockMvc.post().uri("/api/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+                .exchange())
+                .hasStatus(400);
     }
 
     @Test
@@ -94,12 +101,14 @@ class AuthControllerTest {
         );
         when(authService.login(any(LoginRequest.class))).thenReturn(response);
 
-        mockMvc.perform(post("/api/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.token").value("jwt-token"));
+        MvcTestResult result = mockMvc.post().uri("/api/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+                .exchange();
+
+        assertThat(result).hasStatus(200);
+        assertThat(result).bodyJson().extractingPath("$.success").isEqualTo(true);
+        assertThat(result).bodyJson().extractingPath("$.data.token").isEqualTo("jwt-token");
     }
 
     @Test
@@ -108,9 +117,10 @@ class AuthControllerTest {
         request.setEmail("john@example.com");
         // password missing
 
-        mockMvc.perform(post("/api/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest());
+        assertThat(mockMvc.post().uri("/api/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+                .exchange())
+                .hasStatus(400);
     }
 }

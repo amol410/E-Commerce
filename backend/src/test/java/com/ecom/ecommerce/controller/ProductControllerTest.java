@@ -6,55 +6,58 @@ import com.ecom.ecommerce.service.ProductService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
+import com.ecom.ecommerce.config.TestMvcConfig;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
-import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
+import org.springframework.test.web.servlet.assertj.MockMvcTester;
+import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
 import java.math.BigDecimal;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest
-@AutoConfigureMockMvc
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
+@Import(TestMvcConfig.class)
+
 class ProductControllerTest {
 
-    @Autowired private MockMvc mockMvc;
+    @Autowired private MockMvcTester mockMvc;
     @Autowired private ObjectMapper objectMapper;
 
-    @MockBean private ProductService productService;
+    @MockitoBean private ProductService productService;
 
     @Test
-    void getAll_publicEndpoint_returns200() throws Exception {
+    void getAll_publicEndpoint_returns200() {
         Product p = Product.builder().id(1L).name("T-Shirt").price(new BigDecimal("499")).stock(10).active(true).build();
         when(productService.getAll(any(), any(), any(), any(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(p)));
 
-        mockMvc.perform(get("/api/products"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+        assertThat(mockMvc.get().uri("/api/products").exchange())
+                .hasStatus(200)
+                .bodyJson().extractingPath("$.success").isEqualTo(true);
     }
 
     @Test
-    void getById_existingProduct_returns200() throws Exception {
+    void getById_existingProduct_returns200() {
         Product p = Product.builder().id(1L).name("Jeans").price(new BigDecimal("999")).stock(5).active(true).build();
         when(productService.getById(1L)).thenReturn(p);
 
-        mockMvc.perform(get("/api/products/1"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.name").value("Jeans"));
+        MvcTestResult result = mockMvc.get().uri("/api/products/1").exchange();
+
+        assertThat(result).hasStatus(200);
+        assertThat(result).bodyJson().extractingPath("$.data.name").isEqualTo("Jeans");
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
     void create_adminUser_returns201() throws Exception {
         ProductDto dto = new ProductDto();
         dto.setName("New Shirt");
@@ -64,11 +67,14 @@ class ProductControllerTest {
         Product created = Product.builder().id(2L).name("New Shirt").price(new BigDecimal("799")).stock(20).active(true).build();
         when(productService.create(any(ProductDto.class))).thenReturn(created);
 
-        mockMvc.perform(post("/api/products")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(dto)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.data.name").value("New Shirt"));
+        MvcTestResult result = mockMvc.post().uri("/api/products")
+                .with(SecurityMockMvcRequestPostProcessors.user("admin").roles("ADMIN"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(dto))
+                .exchange();
+
+        assertThat(result).hasStatus(201);
+        assertThat(result).bodyJson().extractingPath("$.data.name").isEqualTo("New Shirt");
     }
 
     @Test
@@ -78,9 +84,10 @@ class ProductControllerTest {
         dto.setPrice(new BigDecimal("100"));
         dto.setStock(5);
 
-        mockMvc.perform(post("/api/products")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(dto)))
-                .andExpect(status().isForbidden());
+        assertThat(mockMvc.post().uri("/api/products")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(dto))
+                .exchange())
+                .hasStatus(403);
     }
 }

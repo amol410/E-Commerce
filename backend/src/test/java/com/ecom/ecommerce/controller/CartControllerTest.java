@@ -9,30 +9,32 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
+import com.ecom.ecommerce.config.TestMvcConfig;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
-import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
+import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
 import java.util.ArrayList;
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest
-@AutoConfigureMockMvc
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
+@Import(TestMvcConfig.class)
+
 class CartControllerTest {
 
-    @Autowired private MockMvc mockMvc;
+    @Autowired private MockMvcTester mockMvc;
     @Autowired private ObjectMapper objectMapper;
 
-    @MockBean private CartService cartService;
-    @MockBean private UserRepository userRepository;
+    @MockitoBean private CartService cartService;
+    @MockitoBean private UserRepository userRepository;
 
     private User mockUser;
     private Cart mockCart;
@@ -45,23 +47,23 @@ class CartControllerTest {
     }
 
     @Test
-    void getCart_unauthenticated_returns403() throws Exception {
-        mockMvc.perform(get("/api/cart"))
-                .andExpect(status().isForbidden());
+    void getCart_unauthenticated_returns403() {
+        assertThat(mockMvc.get().uri("/api/cart").exchange())
+                .hasStatus(403);
     }
 
     @Test
-    @WithMockUser(username = "jane@example.com")
-    void getCart_authenticated_returns200() throws Exception {
+    void getCart_authenticated_returns200() {
         when(cartService.getCartByUserId(1L)).thenReturn(mockCart);
 
-        mockMvc.perform(get("/api/cart"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+        assertThat(mockMvc.get().uri("/api/cart")
+                .with(SecurityMockMvcRequestPostProcessors.user("jane@example.com"))
+                .exchange())
+                .hasStatus(200)
+                .bodyJson().extractingPath("$.success").isEqualTo(true);
     }
 
     @Test
-    @WithMockUser(username = "jane@example.com")
     void addItem_validRequest_returns200() throws Exception {
         CartItemRequest request = new CartItemRequest();
         request.setProductId(10L);
@@ -69,37 +71,41 @@ class CartControllerTest {
 
         when(cartService.addItem(eq(1L), any(CartItemRequest.class))).thenReturn(mockCart);
 
-        mockMvc.perform(post("/api/cart/add")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+        assertThat(mockMvc.post().uri("/api/cart/add")
+                .with(SecurityMockMvcRequestPostProcessors.user("jane@example.com"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+                .exchange())
+                .hasStatus(200)
+                .bodyJson().extractingPath("$.success").isEqualTo(true);
     }
 
     @Test
-    @WithMockUser(username = "jane@example.com")
     void addItem_missingProductId_returns400() throws Exception {
         CartItemRequest request = new CartItemRequest();
         // productId is null
         request.setQuantity(2);
 
-        mockMvc.perform(post("/api/cart/add")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest());
+        assertThat(mockMvc.post().uri("/api/cart/add")
+                .with(SecurityMockMvcRequestPostProcessors.user("jane@example.com"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+                .exchange())
+                .hasStatus(400);
     }
 
     @Test
-    @WithMockUser(username = "jane@example.com")
     void addItem_quantityZero_returns400() throws Exception {
         CartItemRequest request = new CartItemRequest();
         request.setProductId(10L);
         request.setQuantity(0);
 
-        mockMvc.perform(post("/api/cart/add")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest());
+        assertThat(mockMvc.post().uri("/api/cart/add")
+                .with(SecurityMockMvcRequestPostProcessors.user("jane@example.com"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+                .exchange())
+                .hasStatus(400);
     }
 
     @Test
@@ -108,52 +114,56 @@ class CartControllerTest {
         request.setProductId(10L);
         request.setQuantity(1);
 
-        mockMvc.perform(post("/api/cart/add")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isForbidden());
+        assertThat(mockMvc.post().uri("/api/cart/add")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+                .exchange())
+                .hasStatus(403);
     }
 
     @Test
-    @WithMockUser(username = "jane@example.com")
-    void updateItem_validRequest_returns200() throws Exception {
+    void updateItem_validRequest_returns200() {
         when(cartService.updateItemQuantity(eq(1L), eq(5L), eq(3))).thenReturn(mockCart);
 
-        mockMvc.perform(put("/api/cart/update/5")
-                        .param("quantity", "3"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+        assertThat(mockMvc.put().uri("/api/cart/update/5")
+                .with(SecurityMockMvcRequestPostProcessors.user("jane@example.com"))
+                .param("quantity", "3")
+                .exchange())
+                .hasStatus(200)
+                .bodyJson().extractingPath("$.success").isEqualTo(true);
     }
 
     @Test
-    @WithMockUser(username = "jane@example.com")
-    void removeItem_validItemId_returns200() throws Exception {
+    void removeItem_validItemId_returns200() {
         when(cartService.removeItem(eq(1L), eq(5L))).thenReturn(mockCart);
 
-        mockMvc.perform(delete("/api/cart/remove/5"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+        assertThat(mockMvc.delete().uri("/api/cart/remove/5")
+                .with(SecurityMockMvcRequestPostProcessors.user("jane@example.com"))
+                .exchange())
+                .hasStatus(200)
+                .bodyJson().extractingPath("$.success").isEqualTo(true);
     }
 
     @Test
-    void removeItem_unauthenticated_returns403() throws Exception {
-        mockMvc.perform(delete("/api/cart/remove/5"))
-                .andExpect(status().isForbidden());
+    void removeItem_unauthenticated_returns403() {
+        assertThat(mockMvc.delete().uri("/api/cart/remove/5").exchange())
+                .hasStatus(403);
     }
 
     @Test
-    @WithMockUser(username = "jane@example.com")
-    void clearCart_authenticated_returns200() throws Exception {
+    void clearCart_authenticated_returns200() {
         doNothing().when(cartService).clearCart(1L);
 
-        mockMvc.perform(delete("/api/cart/clear"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+        assertThat(mockMvc.delete().uri("/api/cart/clear")
+                .with(SecurityMockMvcRequestPostProcessors.user("jane@example.com"))
+                .exchange())
+                .hasStatus(200)
+                .bodyJson().extractingPath("$.success").isEqualTo(true);
     }
 
     @Test
-    void clearCart_unauthenticated_returns403() throws Exception {
-        mockMvc.perform(delete("/api/cart/clear"))
-                .andExpect(status().isForbidden());
+    void clearCart_unauthenticated_returns403() {
+        assertThat(mockMvc.delete().uri("/api/cart/clear").exchange())
+                .hasStatus(403);
     }
 }
