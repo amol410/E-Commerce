@@ -198,9 +198,18 @@ This document describes the step-by-step process followed to build each version 
 - Used `@ExtendWith(MockitoExtension.class)`, `Mockito.when(...).thenReturn(...)`
 
 ### 3. MockMvc Integration Tests
-- `ProductControllerTest` — tests GET all, GET by id, POST (admin), unauthorized POST
-- `AuthControllerTest` — tests register, login success/failure
-- Used `@SpringBootTest`, `@AutoConfigureMockMvc`, JWT token generation in test setup
+- `ProductControllerTest` — GET all, GET by id, POST (admin/anon)
+- `AuthControllerTest` — register (valid, invalid email, missing fields), login (valid, missing password)
+- `CategoryControllerTest` — GET all/tree/by-id, POST/PUT/DELETE (admin, user, anon, validation)
+- `CartControllerTest` — GET cart, add/update/remove/clear item (auth guards + validation)
+- `OrderControllerTest` — place order, get history, get by id (auth guards)
+- Used `@SpringBootTest`, `@AutoConfigureMockMvc`, `@WithMockUser`, `@MockBean` for services
+- H2 in-memory DB used so tests run without MySQL connection
+
+### 4. Test Infrastructure
+- Added `src/test/resources/application.properties` with H2 datasource (`MODE=MySQL`) and `ddl-auto=create-drop`
+- `UserRepository` mocked in controller tests that use `@AuthenticationPrincipal`
+- Total: **46 tests, all passing**
 
 ### 4. Deployment Configuration
 - `application-prod.properties`:
@@ -226,3 +235,33 @@ This document describes the step-by-step process followed to build each version 
 - `git commit -m "v5: validation, JUnit5 tests, MockMvc, deployment config, UI polish"`
 - `git tag v5.0`
 - `git push origin main --tags`
+
+---
+
+## Post-V5 — Java 24 Compatibility Fix
+
+### Problem
+System Java was **24.0.2** but project targeted Java 17. Three annotation processors failed on Java 24:
+- **Lombok 1.18.30** — `TypeTag :: UNKNOWN` in `LombokProcessor` (uses removed internal javac API)
+- **MapStruct 1.5.5.Final** — same internal javac API issue
+- **Mockito 5.7.0 / Byte Buddy 1.14.12** — Byte Buddy only supports up to Java 22; `Could not modify all classes` error in all `@MockBean` tests
+
+### Fixes Applied to `backend/pom.xml`
+
+| Property | Before | After |
+|---|---|---|
+| `java.version` | `17` | `21` |
+| `lombok.version` | *(Spring Boot managed → 1.18.30)* | `1.18.42` |
+| `mapstruct.version` | `1.5.5.Final` | `1.6.3` |
+| `mockito.version` | *(Spring Boot managed → 5.7.0)* | `5.14.2` |
+| `bytebuddy.version` | *(managed → 1.14.12)* | `1.15.10` |
+
+### Surefire JVM Args Added
+```xml
+<argLine>-XX:+EnableDynamicAgentLoading -Dnet.bytebuddy.experimental=true</argLine>
+```
+
+### Test Database
+- Added `com.h2database:h2` (test scope)
+- Created `src/test/resources/application.properties` pointing to H2 in-memory DB
+- `@SpringBootTest` controller tests no longer need a running MySQL instance

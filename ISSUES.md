@@ -157,6 +157,42 @@ This document tracks issues encountered during development and common problems y
 
 ---
 
+## Post-V5 — Java 24 Compatibility
+
+### Faced During Migration
+
+**Issue: `Fatal error compiling: java.lang.ExceptionInInitializerError: com.sun.tools.javac.code.TypeTag :: UNKNOWN`**
+- **Cause:** Lombok 1.18.30 uses internal javac API (`TypeTag`) that was removed in Java 23+. The error surfaces in `LombokProcessor.placePostCompileAndDontMakeForceRoundDummiesHook`.
+- **Fix:** Upgrade Lombok to `1.18.42` (first version with Java 24 support). Pin it explicitly in `pom.xml` because Spring Boot 3.2.x manages it at 1.18.30.
+
+**Issue: MapStruct annotation processor also fails on Java 24**
+- **Cause:** MapStruct 1.5.5.Final uses the same removed internal javac APIs.
+- **Fix:** Upgrade `mapstruct.version` to `1.6.3`.
+
+**Issue: `Mockito cannot mock this class` — all `@MockBean` / `@Mock` tests fail**
+- **Cause:** Byte Buddy 1.14.12 (bundled with Mockito 5.7.0) only supports Java up to version 22 (class file version 66). Java 24 produces class version 68, causing `Could not modify all classes`.
+- **Fix:** Override both `mockito-core` and `mockito-junit-jupiter` to `5.14.2`, and `byte-buddy` + `byte-buddy-agent` to `1.15.10`. Also add JVM args to Surefire:
+  ```xml
+  <argLine>-XX:+EnableDynamicAgentLoading -Dnet.bytebuddy.experimental=true</argLine>
+  ```
+
+**Issue: `@SpringBootTest` controller tests fail with `Access denied for user 'root'@'localhost'`**
+- **Cause:** `@SpringBootTest` loads the full application context including `DataSource`, which tries to connect to MySQL. No MySQL is available in the test environment.
+- **Fix:** Add H2 (`com.h2database:h2`, test scope) and create `src/test/resources/application.properties` with:
+  ```properties
+  spring.datasource.url=jdbc:h2:mem:testdb;MODE=MySQL
+  spring.jpa.hibernate.ddl-auto=create-drop
+  spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
+  ```
+
+### Potential Issues
+
+- **Lombok 1.18.42 not in Maven Central** — If it wasn't in the local `.m2` cache, it needs to be downloaded. Ensure internet access during first build.
+- **H2 `MODE=MySQL` limitations** — H2's MySQL compatibility mode doesn't support all MySQL-specific SQL. Avoid MySQL-specific JPQL or native queries in tests, or use Testcontainers for full MySQL compatibility.
+- **`net.bytebuddy.experimental` flag** — This flag allows Byte Buddy to run on unsupported JVM versions. It may produce warnings. Remove it once Byte Buddy officially supports your Java version.
+
+---
+
 ## General Issues (All Versions)
 
 | Issue | Cause | Fix |
@@ -164,6 +200,6 @@ This document tracks issues encountered during development and common problems y
 | `Connection refused` to MySQL | MySQL not running or wrong port | Start MySQL service; check `application.properties` |
 | `Unknown database 'ecom_db'` | Database not created | Run `CREATE DATABASE ecom_db;` in MySQL |
 | Lombok not working | Annotation processing disabled | Enable in IDE settings |
-| `Could not initialize plugin` Maven error | Java version mismatch | Ensure Java 17 is set as project SDK |
+| `Could not initialize plugin` Maven error | Java version mismatch | Ensure Java 21+ is set as project SDK (project targets Java 21, tested on Java 24) |
 | Next.js hydration mismatch | Server/client render diff | Avoid `window`/`localStorage` on server; use `useEffect` |
 | `400 Bad Request` on POST | Missing `Content-Type: application/json` | Add header in frontend fetch calls |

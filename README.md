@@ -10,12 +10,12 @@ A full-stack e-commerce application built with **Spring Boot 3.x**, **Spring Dat
 
 | Layer       | Technology                                      |
 |-------------|--------------------------------------------------|
-| Backend     | Spring Boot 3.x, Java 17, Spring Data JPA        |
-| Database    | MySQL 8, Hibernate                               |
-| Security    | Spring Security 6, JWT (jjwt)                    |
-| Mapping     | MapStruct                                        |
-| Docs        | Swagger / OpenAPI 3.0                            |
-| Testing     | JUnit 5, MockMvc                                 |
+| Backend     | Spring Boot 3.2.4, Java 21 (runs on Java 24)    |
+| Database    | MySQL 8, Hibernate, H2 (tests)                  |
+| Security    | Spring Security 6, JWT (jjwt 0.12.5)            |
+| Mapping     | MapStruct 1.6.3                                 |
+| Docs        | Swagger / OpenAPI 3.0 (springdoc)               |
+| Testing     | JUnit 5, Mockito 5.14.2, MockMvc (46 tests)     |
 | Frontend    | Next.js 14 (App Router), Tailwind CSS            |
 | Deployment  | Render.com (backend), Vercel (frontend)          |
 
@@ -120,11 +120,18 @@ Ecom/
 **Backend (additions over V4):**
 - Bean Validation (`@Valid`, `@NotBlank`, etc.) on all DTOs
 - Custom validation annotations
-- JUnit 5 unit tests for services
-- MockMvc integration tests for controllers
+- JUnit 5 unit tests for services (`AuthServiceTest`, `CartServiceTest`, `ProductServiceTest`)
+- MockMvc integration tests for all 5 controllers (46 tests total, 100% passing)
+- H2 in-memory database for test isolation (`src/test/resources/application.properties`)
 - `application-prod.properties` for deployment
 - CORS configuration for frontend domain
-- Rate limiting basics
+
+**Java 24 compatibility fixes (post-v5):**
+- Upgraded Lombok to `1.18.42` (Java 24 support)
+- Upgraded MapStruct to `1.6.3`
+- Upgraded Mockito to `5.14.2` + Byte Buddy to `1.15.10`
+- Added `-XX:+EnableDynamicAgentLoading -Dnet.bytebuddy.experimental=true` to Surefire
+- Changed Java target from 17 → 21
 
 **Frontend (additions over V4):**
 - Full Tailwind theming (dark mode toggle)
@@ -144,14 +151,22 @@ Ecom/
 | POST   | /api/products                   | ADMIN      | Create product           |
 | PUT    | /api/products/{id}              | ADMIN      | Update product           |
 | DELETE | /api/products/{id}              | ADMIN      | Delete product           |
+| GET    | /api/categories                 | Public     | List all categories      |
 | GET    | /api/categories/tree            | Public     | Recursive category tree  |
+| GET    | /api/categories/{id}            | Public     | Get category by ID       |
+| POST   | /api/categories                 | ADMIN      | Create category          |
+| PUT    | /api/categories/{id}            | ADMIN      | Update category          |
+| DELETE | /api/categories/{id}            | ADMIN      | Delete category          |
 | POST   | /api/auth/register              | Public     | Register user            |
 | POST   | /api/auth/login                 | Public     | Login, returns JWT       |
 | GET    | /api/cart                       | USER       | View cart                |
 | POST   | /api/cart/add                   | USER       | Add item to cart         |
+| PUT    | /api/cart/update/{itemId}       | USER       | Update item quantity      |
 | DELETE | /api/cart/remove/{itemId}       | USER       | Remove item              |
+| DELETE | /api/cart/clear                 | USER       | Clear entire cart        |
 | POST   | /api/orders/place               | USER       | Place order              |
 | GET    | /api/orders/my                  | USER       | Order history            |
+| GET    | /api/orders/{id}                | USER       | Get order by ID          |
 
 ---
 
